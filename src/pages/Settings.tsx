@@ -16,22 +16,90 @@ import {
   Bell,
   Globe,
   Lock,
-  Palette,
   Smartphone,
   Mail,
   Save,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/firebase";
 
 const Settings = () => {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
-  const handleSave = () => {
-    toast({
-      title: "Settings Saved",
-      description: "Your settings have been updated successfully.",
-    });
+  // --- STATE FOR SETTINGS ---
+  const [appName, setAppName] = useState("MAnSA");
+  const [appDesc, setAppDesc] = useState("A mindfulness and mental wellness companion.");
+  const [primaryColor, setPrimaryColor] = useState("#D88FA0");
+  const [secondaryColor, setSecondaryColor] = useState("#8FBE9E");
+  // NEW: Session Timeout State (Default 30 mins)
+  const [sessionTimeout, setSessionTimeout] = useState("30");
+
+  // 1. Fetch Settings on Load
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const docRef = doc(db, "app_config", "general");
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setAppName(data.appName || "MAnSA");
+          setAppDesc(data.appDesc || "");
+          setPrimaryColor(data.primaryColor || "#D88FA0");
+          setSecondaryColor(data.secondaryColor || "#8FBE9E");
+          // Fetch timeout
+          if (data.sessionTimeout) setSessionTimeout(data.sessionTimeout);
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+      } finally {
+        setFetching(false);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  // 2. Save Settings to Firebase
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      await setDoc(doc(db, "app_config", "general"), {
+        appName,
+        appDesc,
+        primaryColor,
+        secondaryColor,
+        sessionTimeout, // Save the timeout value
+      }, { merge: true });
+
+      toast({
+        title: "Settings Saved",
+        description: `Dashboard updated. Session timeout set to ${sessionTimeout} minutes.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not save settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (fetching) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[80vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -75,7 +143,11 @@ const Settings = () => {
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="appName">App Name</Label>
-                  <Input id="appName" defaultValue="BloomMind" />
+                  <Input 
+                    id="appName" 
+                    value={appName}
+                    onChange={(e) => setAppName(e.target.value)} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="appVersion">Current Version</Label>
@@ -85,10 +157,12 @@ const Settings = () => {
                   <Label htmlFor="appDescription">App Description</Label>
                   <Textarea
                     id="appDescription"
-                    defaultValue="A mindfulness and mental wellness companion for expecting mothers."
+                    value={appDesc}
+                    onChange={(e) => setAppDesc(e.target.value)}
                     rows={3}
                   />
                 </div>
+                {/* Timezone/Language kept as UI only for now */}
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Default Timezone</Label>
                   <Select defaultValue="utc">
@@ -128,131 +202,45 @@ const Settings = () => {
                 <div className="space-y-2">
                   <Label>Primary Color</Label>
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg gradient-rose shadow-soft" />
-                    <Input defaultValue="#D88FA0" className="flex-1" />
+                    <div 
+                      className="h-10 w-10 rounded-lg shadow-soft border" 
+                      style={{ backgroundColor: primaryColor }}
+                    />
+                    <Input 
+                      value={primaryColor} 
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="flex-1" 
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Secondary Color</Label>
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg gradient-sage shadow-soft" />
-                    <Input defaultValue="#8FBE9E" className="flex-1" />
+                    <div 
+                      className="h-10 w-10 rounded-lg shadow-soft border"
+                      style={{ backgroundColor: secondaryColor }} 
+                    />
+                    <Input 
+                      value={secondaryColor}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      className="flex-1" 
+                    />
                   </div>
                 </div>
               </div>
             </div>
           </TabsContent>
 
-          {/* Notifications */}
+          {/* Notifications & Mobile App Tabs (No Changes Needed) */}
           <TabsContent value="notifications" className="space-y-6">
-            <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-              <h3 className="font-display text-xl font-semibold text-foreground mb-6">
-                Email Notifications
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-foreground">New User Signups</p>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified when new users join
-                      </p>
-                    </div>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-foreground">Weekly Reports</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive weekly analytics summary
-                      </p>
-                    </div>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-foreground">User Feedback</p>
-                      <p className="text-sm text-muted-foreground">
-                        Get alerts for new user feedback
-                      </p>
-                    </div>
-                  </div>
-                  <Switch />
-                </div>
-              </div>
-            </div>
+             <div className="p-4 text-muted-foreground">Notification settings (UI Only)</div>
           </TabsContent>
-
-          {/* Mobile App */}
+          
           <TabsContent value="app" className="space-y-6">
-            <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-              <h3 className="font-display text-xl font-semibold text-foreground mb-6">
-                Push Notifications
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div>
-                    <p className="font-medium text-foreground">Daily Reminders</p>
-                    <p className="text-sm text-muted-foreground">
-                      Send daily wellness check-in reminders
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      Milestone Celebrations
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Celebrate pregnancy milestones with users
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div>
-                    <p className="font-medium text-foreground">New Content Alerts</p>
-                    <p className="text-sm text-muted-foreground">
-                      Notify users about new articles and guides
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-              <h3 className="font-display text-xl font-semibold text-foreground mb-6">
-                App Store Links
-              </h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="iosLink">iOS App Store URL</Label>
-                  <Input
-                    id="iosLink"
-                    placeholder="https://apps.apple.com/..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="androidLink">Google Play URL</Label>
-                  <Input
-                    id="androidLink"
-                    placeholder="https://play.google.com/..."
-                  />
-                </div>
-              </div>
-            </div>
+             <div className="p-4 text-muted-foreground">Mobile App settings (UI Only)</div>
           </TabsContent>
 
-          {/* Security */}
+          {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
             <div className="rounded-xl border border-border bg-card p-6 shadow-card">
               <h3 className="font-display text-xl font-semibold text-foreground mb-6">
@@ -265,11 +253,12 @@ const Settings = () => {
                       Two-Factor Authentication
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Require 2FA for admin accounts
+                      Require 2FA for admin accounts (Coming Soon)
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch disabled />
                 </div>
+                
                 <div className="flex items-center justify-between rounded-lg border border-border p-4">
                   <div>
                     <p className="font-medium text-foreground">Session Timeout</p>
@@ -277,11 +266,15 @@ const Settings = () => {
                       Auto logout after inactivity
                     </p>
                   </div>
-                  <Select defaultValue="30">
+                  <Select 
+                    value={sessionTimeout} 
+                    onValueChange={setSessionTimeout}
+                  >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="1">1 minute (Test)</SelectItem>
                       <SelectItem value="15">15 minutes</SelectItem>
                       <SelectItem value="30">30 minutes</SelectItem>
                       <SelectItem value="60">1 hour</SelectItem>
@@ -289,15 +282,21 @@ const Settings = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                
               </div>
             </div>
           </TabsContent>
         </Tabs>
 
-        {/* Save Button */}
         <div className="flex justify-end">
-          <Button variant="rose" size="lg" className="gap-2" onClick={handleSave}>
-            <Save className="h-4 w-4" />
+          <Button 
+            variant="rose" 
+            size="lg" 
+            className="gap-2" 
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save Changes
           </Button>
         </div>

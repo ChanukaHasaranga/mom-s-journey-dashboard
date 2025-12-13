@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ContentCard } from "@/components/dashboard/ContentCard";
 import { Button } from "@/components/ui/button";
@@ -10,106 +10,118 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { collection, onSnapshot, deleteDoc, doc, Timestamp } from "firebase/firestore";
+import { db } from "@/firebase";
+import { EditContentDialog } from "@/components/dashboard/EditContentDialog";
 
-const allContent = [
-  {
-    id: "1",
-    title: "Mindful Breathing for the Third Trimester",
-    category: "Wellness",
-    status: "published" as const,
-    lastUpdated: "2 hours ago",
-  },
-  {
-    id: "2",
-    title: "Nutrition Guide: Week 20-24",
-    category: "Health",
-    status: "draft" as const,
-    lastUpdated: "1 day ago",
-  },
-  {
-    id: "3",
-    title: "Preparing for Labor: Mental Wellness",
-    category: "Education",
-    status: "scheduled" as const,
-    lastUpdated: "3 days ago",
-  },
-  {
-    id: "4",
-    title: "First Trimester Anxiety Management",
-    category: "Wellness",
-    status: "published" as const,
-    lastUpdated: "5 days ago",
-  },
-  {
-    id: "5",
-    title: "Partner Support During Pregnancy",
-    category: "Relationships",
-    status: "published" as const,
-    lastUpdated: "1 week ago",
-  },
-  {
-    id: "6",
-    title: "Sleep Hygiene for Expecting Mothers",
-    category: "Health",
-    status: "draft" as const,
-    lastUpdated: "1 week ago",
-  },
-  {
-    id: "7",
-    title: "Postpartum Mental Health Preparation",
-    category: "Education",
-    status: "scheduled" as const,
-    lastUpdated: "2 weeks ago",
-  },
-  {
-    id: "8",
-    title: "Gentle Yoga Sequences",
-    category: "Wellness",
-    status: "published" as const,
-    lastUpdated: "2 weeks ago",
-  },
-];
+function timeAgo(timestamp: any) {
+  if (!timestamp) return "Unknown";
+  const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  
+  let timeString = "Just now";
+  if (seconds > 31536000) timeString = Math.floor(seconds / 31536000) + " years ago";
+  else if (seconds > 2592000) timeString = Math.floor(seconds / 2592000) + " months ago";
+  else if (seconds > 86400) timeString = Math.floor(seconds / 86400) + " days ago";
+  else if (seconds > 3600) timeString = Math.floor(seconds / 3600) + " hours ago";
+  else if (seconds > 60) timeString = Math.floor(seconds / 60) + " minutes ago";
+
+  return timeString;
+}
 
 const Content = () => {
+  const [contentList, setContentList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedContentId, setSelectedContentId] = useState("");
+
   const { toast } = useToast();
 
-  const filteredContent = allContent.filter((item) => {
-    const matchesSearch = item.title
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || item.status === statusFilter;
-    const matchesCategory =
-      categoryFilter === "all" || item.category === categoryFilter;
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "app_content"), (snapshot) => {
+      const fetchedData = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        
+        const updaterName = data.updatedBy || "System";
+        const timeString = timeAgo(data.updatedAt || data.createdAt);
+        const displayDate = `${updaterName} • ${timeString}`;
+
+        return {
+          id: doc.id,
+          title: data.en?.title || data.title || "Untitled Content", 
+          category: data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : "General",
+          status: data.status || "published",
+          lastUpdated: displayDate, 
+        };
+      });
+      setContentList(fetchedData);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const filteredContent = contentList.filter((item) => {
+    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
   const handleEdit = (id: string) => {
-    toast({
-      title: "Edit Content",
-      description: `Opening editor for content ID: ${id}`,
-    });
+    setSelectedContentId(id);
+    setIsEditOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    toast({
-      title: "Content Deleted",
-      description: "The content has been removed successfully.",
-      variant: "destructive",
-    });
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure? This will delete the content from the mobile app.")) {
+      try {
+        await deleteDoc(doc(db, "app_content", id));
+        toast({
+          title: "Content Deleted",
+          description: "The content has been removed successfully.",
+          variant: "destructive",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Could not delete content.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handlePreview = (id: string) => {
     toast({
-      title: "Preview",
-      description: `Opening preview for content ID: ${id}`,
+      title: "Preview Mode",
+      description: "Mobile preview feature coming soon.",
     });
   };
+
+  const handleCreate = () => {
+    toast({
+      title: "Create Content",
+      description: "Please use the manual upload script for new modules.",
+    });
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[80vh] items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -121,10 +133,10 @@ const Content = () => {
               Content Management
             </h1>
             <p className="mt-1 text-muted-foreground">
-              Create and manage content for the BloomMind app
+              Create and manage content for the MAnSA app
             </p>
           </div>
-          <Button variant="rose" className="gap-2">
+          <Button variant="rose" className="gap-2" onClick={handleCreate}>
             <Plus className="h-4 w-4" />
             Create Content
           </Button>
@@ -181,6 +193,7 @@ const Content = () => {
           ))}
         </div>
 
+        {/* Empty State */}
         {filteredContent.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12">
             <Filter className="h-12 w-12 text-muted-foreground/50" />
@@ -188,10 +201,18 @@ const Content = () => {
               No content found
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Try adjusting your search or filters
+              Try adjusting your search or filters, or check if Firebase has data.
             </p>
           </div>
         )}
+
+        {/* Edit Dialog Component */}
+        <EditContentDialog 
+          contentId={selectedContentId} 
+          open={isEditOpen} 
+          onOpenChange={setIsEditOpen} 
+        />
+
       </div>
     </DashboardLayout>
   );
