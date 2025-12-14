@@ -112,31 +112,31 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
   const renderLanguageFields = (langCode: string) => {
 
 
-if (contentId === 'pregnancy_weeks') {
-        // Generate Week 1 to 40 inputs automatically
-        const weeks = Array.from({ length: 40 }, (_, i) => i + 1);
+    if (contentId === 'pregnancy_weeks') {
+      // Generate Week 1 to 40 inputs automatically
+      const weeks = Array.from({ length: 40 }, (_, i) => i + 1);
 
-        return (
-            <div className="space-y-6 py-4 h-[60vh] overflow-y-auto pr-4">
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-4">
-                    <h4 className="font-bold text-blue-700 mb-1">Weekly Updates</h4>
-                    <p className="text-sm text-blue-600">Edit the detailed description for each week of pregnancy.</p>
-                </div>
+      return (
+        <div className="space-y-6 py-4 h-[60vh] overflow-y-auto pr-4">
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-4">
+            <h4 className="font-bold text-blue-700 mb-1">Weekly Updates</h4>
+            <p className="text-sm text-blue-600">Edit the detailed description for each week of pregnancy.</p>
+          </div>
 
-                {weeks.map((week) => (
-                    <div key={`week${week}`} className="space-y-2 border-b pb-4 last:border-0">
-                        <Label className="font-bold text-gray-700 text-md">Week {week}</Label>
-                        <Textarea 
-                            rows={4} 
-                            placeholder={`Enter details for Week ${week}...`}
-                            value={data[langCode]?.[`week${week}`] || ""} 
-                            onChange={(e) => handleChange(langCode, `week${week}`, e.target.value)} 
-                            className="bg-white"
-                        />
-                    </div>
-                ))}
+          {weeks.map((week) => (
+            <div key={`week${week}`} className="space-y-2 border-b pb-4 last:border-0">
+              <Label className="font-bold text-gray-700 text-md">Week {week}</Label>
+              <Textarea
+                rows={4}
+                placeholder={`Enter details for Week ${week}...`}
+                value={data[langCode]?.[`week${week}`] || ""}
+                onChange={(e) => handleChange(langCode, `week${week}`, e.target.value)}
+                className="bg-white"
+              />
             </div>
-        );
+          ))}
+        </div>
+      );
     }
 
 
@@ -251,13 +251,19 @@ if (contentId === 'pregnancy_weeks') {
           {/* Trimester 1 */}
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-orange-200 bg-orange-50/30">
             <h4 className="font-bold text-orange-800">Trimester 1</h4>
-            <div className="grid gap-2"><Label>Title</Label><Input value={data[langCode]?.t1_title || ""} onChange={(e) => handleChange(langCode, "t1_title", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Title</Label></div>
+
             <div className="grid gap-2"><Label>
+              <Input className="font-bold" value={data[langCode]?.t1_title || ""} onChange={(e) => handleChange(langCode, "t1_title", e.target.value)} />
+            </Label><Textarea rows={3} value={data[langCode]?.t1_body || ""} onChange={(e) => handleChange(langCode, "t1_body", e.target.value)} /></div>
+
+
+            <div className="grid gap-2"><Label>   <Input className="font-bold" value={data[langCode]?.t1_phys_head || ""} onChange={(e) => handleChange(langCode, "t1_phys_head", e.target.value)} />
+
 
 
             </Label><Textarea rows={3} value={data[langCode]?.t1_phys_body || ""} onChange={(e) => handleChange(langCode, "t1_phys_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
-              <Input className="font-bold" value={data[langCode]?.t1_phys_head || ""} onChange={(e) => handleChange(langCode, "t1_phys_head", e.target.value)} />
               <Input className="font-bold" value={data[langCode]?.t1_emot_head || ""} onChange={(e) => handleChange(langCode, "t1_emot_head", e.target.value)} />
 
             </Label><Textarea rows={3} value={data[langCode]?.t1_emot_body || ""} onChange={(e) => handleChange(langCode, "t1_emot_body", e.target.value)} /></div>
@@ -269,7 +275,10 @@ if (contentId === 'pregnancy_weeks') {
           {/* Trimester 2 */}
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-blue-200 bg-blue-50/30">
             <h4 className="font-bold text-blue-800">Trimester 2</h4>
-            <div className="grid gap-2"><Label>Title</Label><Input value={data[langCode]?.t2_title || ""} onChange={(e) => handleChange(langCode, "t2_title", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Title</Label></div>
+              <div className="grid gap-2"><Label>
+    <Input className="font-bold" value={data[langCode]?.t2_title || ""} onChange={(e) => handleChange(langCode, "t2_title", e.target.value)} />
+  </Label><Textarea rows={3} value={data[langCode]?.t2_body || ""} onChange={(e) => handleChange(langCode, "t2_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
               <Input className="font-bold" value={data[langCode]?.t2_phys_head || ""} onChange={(e) => handleChange(langCode, "t2_phys_head", e.target.value)} />
 
@@ -287,7 +296,10 @@ if (contentId === 'pregnancy_weeks') {
           {/* Trimester 3 */}
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-purple-200 bg-purple-50/30">
             <h4 className="font-bold text-purple-800">Trimester 3</h4>
-            <div className="grid gap-2"><Label>Title</Label><Input value={data[langCode]?.t3_title || ""} onChange={(e) => handleChange(langCode, "t3_title", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Title</Label></div>
+              <div className="grid gap-2"><Label>
+    <Input className="font-bold" value={data[langCode]?.t3_title || ""} onChange={(e) => handleChange(langCode, "t3_title", e.target.value)} />
+  </Label><Textarea rows={3} value={data[langCode]?.t3_body || ""} onChange={(e) => handleChange(langCode, "t3_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
 
               <Input className="font-bold" value={data[langCode]?.t3_phys_head || ""} onChange={(e) => handleChange(langCode, "t3_phys_head", e.target.value)} />
