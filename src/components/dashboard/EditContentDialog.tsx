@@ -29,6 +29,28 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
   useEffect(() => {
     if (open && contentId) {
       const fetchData = async () => {
+
+
+        if (contentId === 'pregnancy_weeks') {
+          try {
+            const enDoc = await getDoc(doc(db, "app_translations", "english"));
+            const siDoc = await getDoc(doc(db, "app_translations", "sinhala"));
+            const taDoc = await getDoc(doc(db, "app_translations", "tamil"));
+
+            setData({
+              en: enDoc.exists() ? enDoc.data() : {},
+              si: siDoc.exists() ? siDoc.data() : {},
+              ta: taDoc.exists() ? taDoc.data() : {},
+              type: "weeks"
+            });
+          } catch (e) {
+            console.error("Error fetching weeks:", e);
+            toast({ title: "Error", description: "Could not load weekly data", variant: "destructive" });
+          }
+          return;
+        }
+
+
         const docRef = doc(db, "app_content", contentId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -51,6 +73,19 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
           adminName = adminDoc.data().name || "Admin";
         }
       }
+
+      if (contentId === 'pregnancy_weeks') {
+        // Save to 3 separate documents in 'app_translations'
+        await setDoc(doc(db, "app_translations", "english"), data.en, { merge: true });
+        await setDoc(doc(db, "app_translations", "sinhala"), data.si, { merge: true });
+        await setDoc(doc(db, "app_translations", "tamil"), data.ta, { merge: true });
+
+        toast({ title: "Weeks Updated", description: "All weekly data saved successfully." });
+        onOpenChange(false);
+        setLoading(false);
+        return;
+      }
+
 
       await setDoc(doc(db, "app_content", contentId), {
         ...data,
@@ -76,9 +111,38 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
 
   const renderLanguageFields = (langCode: string) => {
 
-    // =========================================================
-    // 5. PE: MANAGING STRESS (Module 5) <--- NEWLY ADDED
-    // =========================================================
+
+if (contentId === 'pregnancy_weeks') {
+        // Generate Week 1 to 40 inputs automatically
+        const weeks = Array.from({ length: 40 }, (_, i) => i + 1);
+
+        return (
+            <div className="space-y-6 py-4 h-[60vh] overflow-y-auto pr-4">
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-4">
+                    <h4 className="font-bold text-blue-700 mb-1">Weekly Updates</h4>
+                    <p className="text-sm text-blue-600">Edit the detailed description for each week of pregnancy.</p>
+                </div>
+
+                {weeks.map((week) => (
+                    <div key={`week${week}`} className="space-y-2 border-b pb-4 last:border-0">
+                        <Label className="font-bold text-gray-700 text-md">Week {week}</Label>
+                        <Textarea 
+                            rows={4} 
+                            placeholder={`Enter details for Week ${week}...`}
+                            value={data[langCode]?.[`week${week}`] || ""} 
+                            onChange={(e) => handleChange(langCode, `week${week}`, e.target.value)} 
+                            className="bg-white"
+                        />
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+
+
+
+    // 5. PE: MANAGING STRESS (Module 5) 
     if (contentId === 'pe_managing_stress') {
       return (
         <div className="space-y-6 py-4 h-[60vh] overflow-y-auto pr-4">
@@ -132,16 +196,40 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
           <div className="space-y-4 pb-4 p-4">
             <h4 className="font-bold text-yellow-600">Support & Prep</h4>
             <div className="grid gap-2"><Label>Support Title</Label><Input value={data[langCode]?.support_title || ""} onChange={(e) => handleChange(langCode, "support_title", e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Talk</Label><Textarea rows={2} value={data[langCode]?.talk_body || ""} onChange={(e) => handleChange(langCode, "talk_body", e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Group</Label><Textarea rows={2} value={data[langCode]?.group_body || ""} onChange={(e) => handleChange(langCode, "group_body", e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Therapy</Label><Textarea rows={2} value={data[langCode]?.therapy_body || ""} onChange={(e) => handleChange(langCode, "therapy_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+
+              <Input value={data[langCode]?.talk_title || ""} onChange={(e) => handleChange(langCode, "talk_title", e.target.value)} />
+
+            </Label><Textarea rows={2} value={data[langCode]?.talk_body || ""} onChange={(e) => handleChange(langCode, "talk_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+              <Input value={data[langCode]?.group_title || ""} onChange={(e) => handleChange(langCode, "group_title", e.target.value)} />
+
+            </Label><Textarea rows={2} value={data[langCode]?.group_body || ""} onChange={(e) => handleChange(langCode, "group_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+
+              <Input value={data[langCode]?.therapy_title || ""} onChange={(e) => handleChange(langCode, "therapy_title", e.target.value)} />
+
+            </Label><Textarea rows={2} value={data[langCode]?.therapy_body || ""} onChange={(e) => handleChange(langCode, "therapy_body", e.target.value)} /></div>
 
             <div className="grid gap-2 mt-4"><Label>Prep Title</Label><Input value={data[langCode]?.prep_title || ""} onChange={(e) => handleChange(langCode, "prep_title", e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Classes</Label><Textarea rows={2} value={data[langCode]?.classes_body || ""} onChange={(e) => handleChange(langCode, "classes_body", e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Space</Label><Textarea rows={2} value={data[langCode]?.space_body || ""} onChange={(e) => handleChange(langCode, "space_body", e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Partner</Label><Textarea rows={3} value={data[langCode]?.partner_body || ""} onChange={(e) => handleChange(langCode, "partner_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+              <Input value={data[langCode]?.classes_title || ""} onChange={(e) => handleChange(langCode, "classes_title", e.target.value)} />
 
-            <div className="grid gap-2 mt-4"><Label>Closing</Label><Textarea rows={2} value={data[langCode]?.final_body || ""} onChange={(e) => handleChange(langCode, "final_body", e.target.value)} /></div>
+            </Label><Textarea rows={2} value={data[langCode]?.classes_body || ""} onChange={(e) => handleChange(langCode, "classes_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+              <Input value={data[langCode]?.space_title || ""} onChange={(e) => handleChange(langCode, "space_title", e.target.value)} />
+
+            </Label><Textarea rows={2} value={data[langCode]?.space_body || ""} onChange={(e) => handleChange(langCode, "space_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+
+              <Input value={data[langCode]?.partner_title || ""} onChange={(e) => handleChange(langCode, "partner_title", e.target.value)} />
+
+            </Label><Textarea rows={3} value={data[langCode]?.partner_body || ""} onChange={(e) => handleChange(langCode, "partner_body", e.target.value)} /></div>
+
+            <div className="grid gap-2 mt-4"><Label>
+              <Input value={data[langCode]?.final_title || ""} onChange={(e) => handleChange(langCode, "final_title", e.target.value)} />
+
+            </Label><Textarea rows={2} value={data[langCode]?.final_body || ""} onChange={(e) => handleChange(langCode, "final_body", e.target.value)} /></div>
           </div>
         </div>
       );
@@ -165,37 +253,36 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
             <h4 className="font-bold text-orange-800">Trimester 1</h4>
             <div className="grid gap-2"><Label>Title</Label><Input value={data[langCode]?.t1_title || ""} onChange={(e) => handleChange(langCode, "t1_title", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
-                                                                                    <Input className="font-bold" value={data[langCode]?.t1_phys_head|| ""} onChange={(e) => handleChange(langCode, "t1_phys_head", e.target.value)} />
 
-              </Label><Textarea rows={3} value={data[langCode]?.t1_phys_body || ""} onChange={(e) => handleChange(langCode, "t1_phys_body", e.target.value)} /></div>
+
+            </Label><Textarea rows={3} value={data[langCode]?.t1_phys_body || ""} onChange={(e) => handleChange(langCode, "t1_phys_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
-                                                                      <Input className="font-bold" value={data[langCode]?.t1_emot_head|| ""} onChange={(e) => handleChange(langCode, "t1_emot_head", e.target.value)} />
+              <Input className="font-bold" value={data[langCode]?.t1_phys_head || ""} onChange={(e) => handleChange(langCode, "t1_phys_head", e.target.value)} />
+              <Input className="font-bold" value={data[langCode]?.t1_emot_head || ""} onChange={(e) => handleChange(langCode, "t1_emot_head", e.target.value)} />
 
-              </Label><Textarea rows={3} value={data[langCode]?.t1_emot_body || ""} onChange={(e) => handleChange(langCode, "t1_emot_body", e.target.value)} /></div>
+            </Label><Textarea rows={3} value={data[langCode]?.t1_emot_body || ""} onChange={(e) => handleChange(langCode, "t1_emot_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
-                                                        <Input className="font-bold" value={data[langCode]?.t1_do_head|| ""} onChange={(e) => handleChange(langCode, "t1_do_head", e.target.value)} />
+              <Input className="font-bold" value={data[langCode]?.t1_do_head || ""} onChange={(e) => handleChange(langCode, "t1_do_head", e.target.value)} />
 
-              </Label><Textarea rows={3} value={data[langCode]?.t1_do_body || ""} onChange={(e) => handleChange(langCode, "t1_do_body", e.target.value)} /></div>
-            <Input className="mt-2" placeholder="Image URL" value={data[langCode]?.img_t1 || ""} onChange={(e) => handleChange(langCode, "img_t1", e.target.value)} />
+            </Label><Textarea rows={3} value={data[langCode]?.t1_do_body || ""} onChange={(e) => handleChange(langCode, "t1_do_body", e.target.value)} /></div>
           </div>
           {/* Trimester 2 */}
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-blue-200 bg-blue-50/30">
             <h4 className="font-bold text-blue-800">Trimester 2</h4>
             <div className="grid gap-2"><Label>Title</Label><Input value={data[langCode]?.t2_title || ""} onChange={(e) => handleChange(langCode, "t2_title", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
-                                                                      <Input className="font-bold" value={data[langCode]?.t2_phys_head|| ""} onChange={(e) => handleChange(langCode, "t2_phys_head", e.target.value)} />
+              <Input className="font-bold" value={data[langCode]?.t2_phys_head || ""} onChange={(e) => handleChange(langCode, "t2_phys_head", e.target.value)} />
 
-              </Label><Textarea rows={3} value={data[langCode]?.t2_phys_body || ""} onChange={(e) => handleChange(langCode, "t2_phys_body", e.target.value)} /></div>
+            </Label><Textarea rows={3} value={data[langCode]?.t2_phys_body || ""} onChange={(e) => handleChange(langCode, "t2_phys_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
-                                                        <Input className="font-bold" value={data[langCode]?.t2_emot_head|| ""} onChange={(e) => handleChange(langCode, "t2_emot_head", e.target.value)} />
+              <Input className="font-bold" value={data[langCode]?.t2_emot_head || ""} onChange={(e) => handleChange(langCode, "t2_emot_head", e.target.value)} />
 
-              </Label><Textarea rows={3} value={data[langCode]?.t2_emot_body || ""} onChange={(e) => handleChange(langCode, "t2_emot_body", e.target.value)} /></div>
+            </Label><Textarea rows={3} value={data[langCode]?.t2_emot_body || ""} onChange={(e) => handleChange(langCode, "t2_emot_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
-              
-                                          <Input className="font-bold" value={data[langCode]?.t2_do_head|| ""} onChange={(e) => handleChange(langCode, "t2_do_head", e.target.value)} />
 
-              </Label><Textarea rows={3} value={data[langCode]?.t2_do_body || ""} onChange={(e) => handleChange(langCode, "t2_do_body", e.target.value)} /></div>
-            <Input className="mt-2" placeholder="Image URL" value={data[langCode]?.img_t2 || ""} onChange={(e) => handleChange(langCode, "img_t2", e.target.value)} />
+              <Input className="font-bold" value={data[langCode]?.t2_do_head || ""} onChange={(e) => handleChange(langCode, "t2_do_head", e.target.value)} />
+
+            </Label><Textarea rows={3} value={data[langCode]?.t2_do_body || ""} onChange={(e) => handleChange(langCode, "t2_do_body", e.target.value)} /></div>
           </div>
           {/* Trimester 3 */}
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-purple-200 bg-purple-50/30">
@@ -214,11 +301,6 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
 
               <Input className="font-bold" value={data[langCode]?.t3_do_head || ""} onChange={(e) => handleChange(langCode, "t3_do_head", e.target.value)} />
             </Label><Textarea rows={3} value={data[langCode]?.t3_do_body || ""} onChange={(e) => handleChange(langCode, "t3_do_body", e.target.value)} /></div>
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              <Input placeholder="Img 1" value={data[langCode]?.img_t3_1 || ""} onChange={(e) => handleChange(langCode, "img_t3_1", e.target.value)} />
-              <Input placeholder="Img 2" value={data[langCode]?.img_t3_2 || ""} onChange={(e) => handleChange(langCode, "img_t3_2", e.target.value)} />
-              <Input placeholder="Img 3" value={data[langCode]?.img_t3_3 || ""} onChange={(e) => handleChange(langCode, "img_t3_3", e.target.value)} />
-            </div>
           </div>
           { }
           <div className="space-y-4 pb-4">
@@ -263,17 +345,14 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Physical Prep</Label><Input value={data[langCode]?.physical_prep_title || ""} onChange={(e) => handleChange(langCode, "physical_prep_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.physical_prep_body || ""} onChange={(e) => handleChange(langCode, "physical_prep_body", e.target.value)} />
-              <Input placeholder="Image URL (Physical)" value={data[langCode]?.img_physical || ""} onChange={(e) => handleChange(langCode, "img_physical", e.target.value)} />
             </div>
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Hospital Bag</Label><Input value={data[langCode]?.bag_title || ""} onChange={(e) => handleChange(langCode, "bag_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.bag_body || ""} onChange={(e) => handleChange(langCode, "bag_body", e.target.value)} />
-              <Input placeholder="Image URL (Bag)" value={data[langCode]?.img_bag || ""} onChange={(e) => handleChange(langCode, "img_bag", e.target.value)} />
             </div>
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Birth Plan</Label><Input value={data[langCode]?.plan_title || ""} onChange={(e) => handleChange(langCode, "plan_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.plan_body || ""} onChange={(e) => handleChange(langCode, "plan_body", e.target.value)} />
-              <Input placeholder="Image URL (Plan)" value={data[langCode]?.img_plan || ""} onChange={(e) => handleChange(langCode, "img_plan", e.target.value)} />
             </div>
           </div>
           <div className="space-y-4 border-b pb-4 p-4">
@@ -284,29 +363,24 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
 
             <div className="grid gap-2 mt-2"><Label>Supplies Title</Label><Input value={data[langCode]?.pp_supplies_title || ""} onChange={(e) => handleChange(langCode, "pp_supplies_title", e.target.value)} /></div>
             <div className="grid gap-2"><Label>Supplies Body</Label><Textarea rows={3} value={data[langCode]?.pp_supplies_body || ""} onChange={(e) => handleChange(langCode, "pp_supplies_body", e.target.value)} /></div>
-            <Input placeholder="Image URL (Supplies)" value={data[langCode]?.img_supplies || ""} onChange={(e) => handleChange(langCode, "img_supplies", e.target.value)} />
           </div>
           <div className="space-y-4 border-b pb-4 p-4">
             <h4 className="font-bold text-teal-600">Recovery & Feeding</h4>
             <div className="space-y-2">
               <Label>Rule Title</Label><Input value={data[langCode]?.rule_title || ""} onChange={(e) => handleChange(langCode, "rule_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.rule_body || ""} onChange={(e) => handleChange(langCode, "rule_body", e.target.value)} />
-              <Input placeholder="Image URL (Rule)" value={data[langCode]?.img_rule || ""} onChange={(e) => handleChange(langCode, "img_rule", e.target.value)} />
             </div>
             <div className="space-y-2 mt-4">
               <Label>Emotional Title</Label><Input value={data[langCode]?.emo_title || ""} onChange={(e) => handleChange(langCode, "emo_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.emo_body || ""} onChange={(e) => handleChange(langCode, "emo_body", e.target.value)} />
-              <Input placeholder="Image URL (Emotional)" value={data[langCode]?.img_emo || ""} onChange={(e) => handleChange(langCode, "img_emo", e.target.value)} />
             </div>
             <div className="space-y-2 mt-4">
               <Label>Feeding Title</Label><Input value={data[langCode]?.feed_title || ""} onChange={(e) => handleChange(langCode, "feed_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.feed_body || ""} onChange={(e) => handleChange(langCode, "feed_body", e.target.value)} />
-              <Input placeholder="Image URL (Feeding)" value={data[langCode]?.img_feed || ""} onChange={(e) => handleChange(langCode, "img_feed", e.target.value)} />
             </div>
             <div className="space-y-2 mt-4">
               <Label>Intro Baby Title</Label><Input value={data[langCode]?.intro_baby_title || ""} onChange={(e) => handleChange(langCode, "intro_baby_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.intro_baby_body || ""} onChange={(e) => handleChange(langCode, "intro_baby_body", e.target.value)} />
-              <Input placeholder="Image URL (Intro Baby)" value={data[langCode]?.img_intro || ""} onChange={(e) => handleChange(langCode, "img_intro", e.target.value)} />
             </div>
           </div>
           <div className="space-y-4 pb-4">
@@ -344,22 +418,18 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Health & Development</Label><Input value={data[langCode]?.s1_h_title || ""} onChange={(e) => handleChange(langCode, "s1_h_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.s1_h_body || ""} onChange={(e) => handleChange(langCode, "s1_h_body", e.target.value)} />
-              <Input placeholder="Image URL (Health)" value={data[langCode]?.img_health || ""} onChange={(e) => handleChange(langCode, "img_health", e.target.value)} />
             </div>
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Birth & Delivery</Label><Input value={data[langCode]?.s1_b_title || ""} onChange={(e) => handleChange(langCode, "s1_b_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.s1_b_body || ""} onChange={(e) => handleChange(langCode, "s1_b_body", e.target.value)} />
-              <Input placeholder="Image URL (Birth)" value={data[langCode]?.img_birth || ""} onChange={(e) => handleChange(langCode, "img_birth", e.target.value)} />
             </div>
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Newborn Care</Label><Input value={data[langCode]?.s1_n_title || ""} onChange={(e) => handleChange(langCode, "s1_n_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.s1_n_body || ""} onChange={(e) => handleChange(langCode, "s1_n_body", e.target.value)} />
-              <Input placeholder="Image URL (Newborn)" value={data[langCode]?.img_newborn || ""} onChange={(e) => handleChange(langCode, "img_newborn", e.target.value)} />
             </div>
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Miscarriage</Label><Input value={data[langCode]?.s1_m_title || ""} onChange={(e) => handleChange(langCode, "s1_m_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.s1_m_body || ""} onChange={(e) => handleChange(langCode, "s1_m_body", e.target.value)} />
-              <Input placeholder="Image URL (Miscarriage)" value={data[langCode]?.img_miscarriage || ""} onChange={(e) => handleChange(langCode, "img_miscarriage", e.target.value)} />
             </div>
           </div>
           <div className="space-y-4 border-b pb-4 p-4">
@@ -373,12 +443,10 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Partner</Label><Input value={data[langCode]?.s2_p_title || ""} onChange={(e) => handleChange(langCode, "s2_p_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.s2_p_body || ""} onChange={(e) => handleChange(langCode, "s2_p_body", e.target.value)} />
-              <Input placeholder="Image URL (Partner)" value={data[langCode]?.img_partner || ""} onChange={(e) => handleChange(langCode, "img_partner", e.target.value)} />
             </div>
             <div className="pl-4 border-l-2 border-gray-200 space-y-3">
               <Label>Parenting</Label><Input value={data[langCode]?.s2_par_title || ""} onChange={(e) => handleChange(langCode, "s2_par_title", e.target.value)} />
               <Textarea rows={3} value={data[langCode]?.s2_par_body || ""} onChange={(e) => handleChange(langCode, "s2_par_body", e.target.value)} />
-              <Input placeholder="Image URL (Parenting)" value={data[langCode]?.img_parenting || ""} onChange={(e) => handleChange(langCode, "img_parenting", e.target.value)} />
             </div>
           </div>
           <div className="space-y-4 pb-4 p-4">

@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Filter, Loader2 } from "lucide-react";
+import { Plus, Search, Filter, Loader2, Calendar } from "lucide-react"; // Import Calendar
 import { useToast } from "@/hooks/use-toast";
 import { collection, onSnapshot, deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/firebase";
@@ -75,6 +75,13 @@ const Content = () => {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
+  // --- NEW HANDLER FOR WEEKS ---
+  const handleManageWeeks = () => {
+    setSelectedContentId("pregnancy_weeks"); // Triggers the special week editor
+    setIsEditOpen(true);
+  };
+  // -----------------------------
+
   const handleEdit = (id: string) => {
     setSelectedContentId(id);
     setIsEditOpen(true);
@@ -84,33 +91,19 @@ const Content = () => {
     if (confirm("Are you sure? This will delete the content from the mobile app.")) {
       try {
         await deleteDoc(doc(db, "app_content", id));
-        toast({
-          title: "Content Deleted",
-          description: "The content has been removed successfully.",
-          variant: "destructive",
-        });
+        toast({ title: "Content Deleted", description: "Removed successfully.", variant: "destructive" });
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Could not delete content.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Could not delete content.", variant: "destructive" });
       }
     }
   };
 
   const handlePreview = (id: string) => {
-    toast({
-      title: "Preview Mode",
-      description: "Mobile preview feature coming soon.",
-    });
+    toast({ title: "Preview Mode", description: "Mobile preview feature coming soon." });
   };
 
   const handleCreate = () => {
-    toast({
-      title: "Create Content",
-      description: "Please use the manual upload script for new modules.",
-    });
+    toast({ title: "Create Content", description: "Please use the manual upload script for new modules." });
   };
 
   if (loading) {
@@ -136,10 +129,24 @@ const Content = () => {
               Create and manage content for the MAnSA app
             </p>
           </div>
-          <Button variant="rose" className="gap-2" onClick={handleCreate}>
-            <Plus className="h-4 w-4" />
-            Create Content
-          </Button>
+          
+          <div className="flex gap-2">
+            {/* --- ADDED THIS BUTTON --- */}
+            <Button 
+              variant="outline" 
+              className="gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+              onClick={handleManageWeeks}
+            >
+              <Calendar className="h-4 w-4" />
+              Manage Weekly Updates
+            </Button>
+            {/* ------------------------- */}
+
+            <Button variant="rose" className="gap-2" onClick={handleCreate}>
+              <Plus className="h-4 w-4" />
+              Create Content
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
