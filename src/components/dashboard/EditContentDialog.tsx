@@ -362,6 +362,10 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
             <div className="grid gap-2"><Label>            <Input className="font-bold" value={data[langCode]?.s3_intr_title || ""} onChange={(e) => handleChange(langCode, "s3_intr_title", e.target.value)} />
             </Label><Textarea rows={2} value={data[langCode]?.s3_intr_body || ""} onChange={(e) => handleChange(langCode, "s3_intr_body", e.target.value)} /></div>
 
+            <div className="grid gap-2"><Label>            <Input className="font-bold" value={data[langCode]?.s3_unk_title || ""} onChange={(e) => handleChange(langCode, "s3_unk_title", e.target.value)} />
+            </Label><Textarea rows={2} value={data[langCode]?.s3_unk_body || ""} onChange={(e) => handleChange(langCode, "s3_unk_body", e.target.value)} /></div> <div className="grid gap-2"><Label>            <Input className="font-bold" value={data[langCode]?.s3_hosp_title || ""} onChange={(e) => handleChange(langCode, "s3_hosp_title", e.target.value)} />
+            </Label><Textarea rows={2} value={data[langCode]?.s3_hosp_body || ""} onChange={(e) => handleChange(langCode, "s3_hosp_body", e.target.value)} /></div>
+
             <div className="grid gap-2"><Label>            <Input className="font-bold" value={data[langCode]?.closing_title || ""} onChange={(e) => handleChange(langCode, "closing_title", e.target.value)} />
             </Label><Textarea rows={3} value={data[langCode]?.closing_body || ""} onChange={(e) => handleChange(langCode, "closing_body", e.target.value)} /></div>
           </div>
