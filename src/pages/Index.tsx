@@ -8,17 +8,14 @@ import {
   Activity,
   Heart,
   TrendingUp,
-  Brain,
   Plus,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-// 1. Added deleteDoc and doc
 import { collection, getDocs, Timestamp, query, orderBy, limit, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/firebase";
 import { useNavigate } from "react-router-dom";
-// 2. Import Edit Dialog and Toast
 import { EditContentDialog } from "@/components/dashboard/EditContentDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,7 +37,7 @@ function timeAgo(date: Date) {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { toast } = useToast(); // Hook for notifications
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   
   // --- STATE ---
@@ -50,11 +47,11 @@ const Index = () => {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [recentContent, setRecentContent] = useState<any[]>([]); 
 
-  // --- DIALOG STATE (New) ---
+  // --- DIALOG STATE ---
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedContentId, setSelectedContentId] = useState("");
 
-  // --- HANDLERS (New) ---
+  // --- HANDLERS ---
   const handleEdit = (id: string) => {
     setSelectedContentId(id);
     setIsEditOpen(true);
@@ -64,10 +61,7 @@ const Index = () => {
     if (confirm("Are you sure? This will delete the content from the mobile app.")) {
       try {
         await deleteDoc(doc(db, "app_content", id));
-        
-        // Update local state to remove the deleted item immediately
         setRecentContent(prev => prev.filter(item => item.id !== id));
-        
         toast({
           title: "Content Deleted",
           description: "Removed successfully.",
@@ -156,32 +150,39 @@ const Index = () => {
         });
         setRecentActivities(newActivities);
 
-        // --- 4. FETCH RECENT CONTENT ---
+        // --- 4. FETCH RECENT CONTENT (Updated Logic) ---
         const contentQuery = query(
           collection(db, "app_content"),
           orderBy("updatedAt", "desc"), 
-          limit(3)
+          limit(20) // Increased limit to ensure we find non-FAQs
         );
         const contentSnapshot = await getDocs(contentQuery);
         
-        const fetchedContent = contentSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          const updaterName = data.updatedBy || "System";
-          
-          const dateObj = data.updatedAt instanceof Timestamp 
-            ? data.updatedAt.toDate() 
-            : (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date());
+        const fetchedContent = contentSnapshot.docs
+          .map((doc) => {
+            const data = doc.data();
+            const updaterName = data.updatedBy || "System";
             
-          const timeString = timeAgo(dateObj);
+            const dateObj = data.updatedAt instanceof Timestamp 
+              ? data.updatedAt.toDate() 
+              : (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date());
+            
+            const timeString = timeAgo(dateObj);
 
-          return {
-            id: doc.id,
-            title: data.en?.title || data.title || "Untitled Content",
-            category: data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : "General",
-            status: data.status || "published",
-            lastUpdated: `${updaterName} • ${timeString}`, // Correct format
-          };
-        });
+            return {
+              id: doc.id,
+              title: data.en?.title || data.title || "Untitled Content",
+              category: data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : "General",
+              status: data.status || "published",
+              lastUpdated: `${updaterName} • ${timeString}`,
+              type: data.type || "general" // Capture type for filtering
+            };
+          })
+          // FILTER: Exclude FAQs
+          .filter((item) => item.type !== 'faq')
+          // SLICE: Take only the top 3 after filtering
+          .slice(0, 3);
+
         setRecentContent(fetchedContent);
 
       } catch (error) {
@@ -257,23 +258,20 @@ const Index = () => {
                 <ContentCard 
                   key={content.id} 
                   {...content} 
-                  // --- CRITICAL FIX: Pass the handlers here ---
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onPreview={handlePreview}
-                  // -------------------------------------------
                 />
               ))}
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
-              No content found. Go to the Content page to create some.
+              No recent wellness updates found.
             </div>
           )}
         </div>
 
-
-        {/* --- EDIT DIALOG (must be rendered to work) --- */}
+        {/* EDIT DIALOG */}
         <EditContentDialog 
           contentId={selectedContentId} 
           open={isEditOpen} 

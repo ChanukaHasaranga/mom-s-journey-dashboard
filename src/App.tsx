@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute, PublicRoute } from "@/components/AuthWrapper";
+import FAQBuilderPage from "./pages/FAQManager";
 
 import Index from "./pages/Index";
 import Content from "./pages/Content";
@@ -14,6 +15,8 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { SessionTimeout } from "./components/SessionTimeout";
 import AppUsers from "./pages/AppUsers";
+import FAQList from "./pages/FAQList";
+import FAQManager from "./pages/FAQManager";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -59,13 +62,13 @@ const App = () => (
             }
           />
           <Route
-          path="/app-users" 
-          element={
-            <ProtectedRoute>
-              <AppUsers />
-            </ProtectedRoute>
-          }
-        />
+            path="/app-users"
+            element={
+              <ProtectedRoute>
+                <AppUsers />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/analytics"
             element={
@@ -82,8 +85,8 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-
-          <Route path="*" element={<NotFound />} />
+          <Route path="/faqs" element={<FAQList />} />
+<Route path="/faqs/manage" element={<FAQManager />} />          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   Baby,
+  BookOpen,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ const navItems = [
   { icon: Baby, label: "App Mothers", path: "/app-users" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Settings, label: "Settings", path: "/settings" },
+    { icon: BookOpen, label: "FAQs", path: "/faqs" },
+
 ];
 
 export function Sidebar() {

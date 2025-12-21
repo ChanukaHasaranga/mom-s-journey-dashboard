@@ -10,11 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Filter, Loader2, Calendar } from "lucide-react"; // Import Calendar
+import { Plus, Search, Filter, Loader2, Calendar, BookOpen } from "lucide-react"; // Import Calendar
 import { useToast } from "@/hooks/use-toast";
 import { collection, onSnapshot, deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/firebase";
 import { EditContentDialog } from "@/components/dashboard/EditContentDialog";
+import { useNavigate } from "react-router-dom";
+
+
+
+
 
 function timeAgo(timestamp: any) {
   if (!timestamp) return "Unknown";
@@ -43,7 +48,7 @@ const Content = () => {
   const [selectedContentId, setSelectedContentId] = useState("");
 
   const { toast } = useToast();
-
+const navigate = useNavigate();
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "app_content"), (snapshot) => {
       const fetchedData = snapshot.docs.map((doc) => {
@@ -52,15 +57,17 @@ const Content = () => {
         const updaterName = data.updatedBy || "System";
         const timeString = timeAgo(data.updatedAt || data.createdAt);
         const displayDate = `${updaterName} • ${timeString}`;
-
-        return {
-          id: doc.id,
-          title: data.en?.title || data.title || "Untitled Content", 
-          category: data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : "General",
-          status: data.status || "published",
-          lastUpdated: displayDate, 
-        };
-      });
+return {
+            id: doc.id,
+            title: data.en?.title || data.title || "Untitled Content",
+            category: data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : "General",
+            status: data.status || "published",
+            lastUpdated: displayDate,
+            type: data.type || "general" // Add this field for filtering
+          };
+        })
+        // FILTER: Hide FAQs from this page
+        .filter(item => item.type !== 'faq');
       setContentList(fetchedData);
       setLoading(false);
     });
@@ -140,6 +147,14 @@ const Content = () => {
               <Calendar className="h-4 w-4" />
               Manage Weekly Updates
             </Button>
+            <Button 
+    variant="outline" 
+    className="gap-2 border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+    onClick={() => navigate("/faq-builder?id=faq_baby_movements")}
+  >
+    <BookOpen className="h-4 w-4" /> {/* Ensure BookOpen is imported from lucide-react */}
+    Manage Baby FAQs
+  </Button>
             {/* ------------------------- */}
 
             <Button variant="rose" className="gap-2" onClick={handleCreate}>

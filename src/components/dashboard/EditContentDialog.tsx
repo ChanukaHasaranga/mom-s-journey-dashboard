@@ -252,7 +252,7 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-orange-200 bg-orange-50/30">
             <h4 className="font-bold text-orange-800">Trimester 1</h4>
             <div className="grid gap-2"><Label>Title</Label></div>
- <Input className="font-bold" value={data[langCode]?.t1_motto || ""} onChange={(e) => handleChange(langCode, "t1_motto", e.target.value)} />
+            <Input className="font-bold" value={data[langCode]?.t1_motto || ""} onChange={(e) => handleChange(langCode, "t1_motto", e.target.value)} />
 
             <div className="grid gap-2"><Label>
               <Input className="font-bold" value={data[langCode]?.t1_title || ""} onChange={(e) => handleChange(langCode, "t1_title", e.target.value)} />
@@ -277,11 +277,11 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-blue-200 bg-blue-50/30">
             <h4 className="font-bold text-blue-800">Trimester 2</h4>
             <div className="grid gap-2"><Label>Title</Label></div>
-             <Input className="font-bold" value={data[langCode]?.t2_motto || ""} onChange={(e) => handleChange(langCode, "t2_motto", e.target.value)} />
+            <Input className="font-bold" value={data[langCode]?.t2_motto || ""} onChange={(e) => handleChange(langCode, "t2_motto", e.target.value)} />
 
-              <div className="grid gap-2"><Label>
-    <Input className="font-bold" value={data[langCode]?.t2_title || ""} onChange={(e) => handleChange(langCode, "t2_title", e.target.value)} />
-  </Label><Textarea rows={3} value={data[langCode]?.t2_body || ""} onChange={(e) => handleChange(langCode, "t2_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+              <Input className="font-bold" value={data[langCode]?.t2_title || ""} onChange={(e) => handleChange(langCode, "t2_title", e.target.value)} />
+            </Label><Textarea rows={3} value={data[langCode]?.t2_body || ""} onChange={(e) => handleChange(langCode, "t2_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
               <Input className="font-bold" value={data[langCode]?.t2_phys_head || ""} onChange={(e) => handleChange(langCode, "t2_phys_head", e.target.value)} />
 
@@ -300,11 +300,11 @@ export function EditContentDialog({ contentId, open, onOpenChange }: EditContent
           <div className="space-y-4 border-b pb-4 p-4 border-l-4 border-l-purple-200 bg-purple-50/30">
             <h4 className="font-bold text-purple-800">Trimester 3</h4>
             <div className="grid gap-2"><Label>Title</Label></div>
-             <Input className="font-bold" value={data[langCode]?.t3_motto || ""} onChange={(e) => handleChange(langCode, "t3_motto", e.target.value)} />
+            <Input className="font-bold" value={data[langCode]?.t3_motto || ""} onChange={(e) => handleChange(langCode, "t3_motto", e.target.value)} />
 
-              <div className="grid gap-2"><Label>
-    <Input className="font-bold" value={data[langCode]?.t3_title || ""} onChange={(e) => handleChange(langCode, "t3_title", e.target.value)} />
-  </Label><Textarea rows={3} value={data[langCode]?.t3_body || ""} onChange={(e) => handleChange(langCode, "t3_body", e.target.value)} /></div>
+            <div className="grid gap-2"><Label>
+              <Input className="font-bold" value={data[langCode]?.t3_title || ""} onChange={(e) => handleChange(langCode, "t3_title", e.target.value)} />
+            </Label><Textarea rows={3} value={data[langCode]?.t3_body || ""} onChange={(e) => handleChange(langCode, "t3_body", e.target.value)} /></div>
             <div className="grid gap-2"><Label>
 
               <Input className="font-bold" value={data[langCode]?.t3_phys_head || ""} onChange={(e) => handleChange(langCode, "t3_phys_head", e.target.value)} />
