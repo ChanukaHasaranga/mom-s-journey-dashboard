@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute, PublicRoute } from "@/components/AuthWrapper";
 import FAQBuilderPage from "./pages/FAQManager";
-
+import UserActivityPage from "./pages/UserActivity";
 import Index from "./pages/Index";
 import Content from "./pages/Content";
 import Users from "./pages/Users";
@@ -85,6 +85,7 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route path="/users/activity" element={<UserActivityPage />} />
           <Route path="/faqs" element={<FAQList />} />
 <Route path="/faqs/manage" element={<FAQManager />} />          <Route path="*" element={<NotFound />} />
         </Routes>

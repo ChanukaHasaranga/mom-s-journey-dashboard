@@ -26,6 +26,11 @@ const navItems = [
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Settings, label: "Settings", path: "/settings" },
     { icon: BookOpen, label: "FAQs", path: "/faqs" },
+    {
+  label: "User Activity",
+  path: "/users/activity",
+  icon: Users, // Import from lucide-react
+}
 
 ];
 
