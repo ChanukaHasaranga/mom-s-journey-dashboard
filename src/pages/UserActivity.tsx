@@ -11,22 +11,28 @@ import {
 } from "@/components/ui/dialog";
 import { collection, getDocs, getDoc, doc, query, orderBy, limit, where } from "firebase/firestore";
 import { db } from "@/firebase";
+// Icons
 import { 
-  Search, Eye, Activity, Smile, HeartPulse, Footprints, Wind, BookOpen 
+  Search, Eye, Activity, Smile, HeartPulse, Footprints, Wind, BookOpen, Clock, Wifi, WifiOff 
 } from "lucide-react";
+// Charts
 import { 
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell 
 } from "recharts";
 
 export default function UserActivityPage() {
+  // --- STATE ---
   const [users, setUsers] = useState<any[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   
+  // Selected User Data
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userActivities, setUserActivities] = useState<any[]>([]);
   const [userStats, setUserStats] = useState<any>({});
+  
+  // Loading State for Dialog
   const [fetchingDetails, setFetchingDetails] = useState(false);
 
   // --- 1. FETCH ALL USERS ---
@@ -74,43 +80,64 @@ export default function UserActivityPage() {
   // --- 3. FETCH DETAILED ACTIVITY ---
   const handleViewUser = async (user: any) => {
     setSelectedUser(user);
-    setFetchingDetails(true);
+    setFetchingDetails(true); // Start Loading
     setUserActivities([]);
     
     const uid = user.id;
     const bucket: any[] = [];
+    
+    // Initial Stats including Time
+    const newStats: any = { 
+        "Kick": 0, "Contraction": 0, "Breathing": 0, 
+        "Mood": 0, "Psychoeducation": 0, "Visualization": 0,
+        "OnlineTime": 0, "OfflineTime": 0, "TotalTime": 0 
+    };
 
     try {
-      // Fetch from all relevant collections
-      // Note: We added the specific path for visualization sessions here
-      const [kicks, contractions, breathing, moods, chapters, vizSessions, vizLogs] = await Promise.all([
+      // Fetch from all relevant collections concurrently
+      const [kicks, contractions, breathing, moods, chapters, vizSessions, vizLogs, appSessions] = await Promise.all([
           getDocs(collection(db, `users/${uid}/kicks`)),
           getDocs(collection(db, `users/${uid}/contractions`)),
-          getDocs(collection(db, `users/${uid}/mindfulexcercie/breathing/breathing_sessions`)), // Note spelling 'mindfulexcercie' matches Flutter
+          getDocs(collection(db, `users/${uid}/mindfulexcercie/breathing/breathing_sessions`)),
           getDocs(collection(db, `users/${uid}/moods`)),
           getDocs(collection(db, `users/${uid}/readchapters/psychoeducation/chapters`)),
-          // NEW: Fetch from the user's specific visualization sub-collection
           getDocs(collection(db, `users/${uid}/mindfulexcercie/visualization/visualization_sessions`)),
-          // Keep this for backward compatibility if you used global logs
-          getDocs(query(collection(db, "activity_logs"), where("uid", "==", uid), where("activityType", "==", "Visualization")))
+          getDocs(query(collection(db, "activity_logs"), where("uid", "==", uid), where("activityType", "==", "Visualization"))),
+          // NEW: Fetch App Sessions
+          getDocs(collection(db, `users/${uid}/app_sessions`))
       ]);
 
+      // --- PROCESS ACTIVITIES ---
       kicks.forEach(d => bucket.push(normalize(d, "Kick", <Footprints size={16}/>)));
       contractions.forEach(d => bucket.push(normalize(d, "Contraction", <HeartPulse size={16}/>)));
       breathing.forEach(d => bucket.push(normalize(d, "Breathing", <Wind size={16}/>)));
       moods.forEach(d => bucket.push(normalize(d, "Mood", <Smile size={16}/>)));
+      
       chapters.forEach(d => {
         const title = d.id.replace("chapter", "Chapter ");
         bucket.push(normalize(d, "Psychoeducation", <BookOpen size={16}/>, `Read ${title}`));
       });
-      
-      // Process Visualization Sessions (The Timer Data)
+
       vizSessions.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
-      
-      // Process Global Logs (The Checkbox Data) - optional, might duplicate if you log both
       vizLogs.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
 
-      // Sort by Date (Newest first)
+      // --- PROCESS APP SESSIONS (TIME TRACKING) ---
+      appSessions.forEach(doc => {
+          const d = doc.data();
+          const seconds = d.durationSeconds || 0;
+          const status = d.status || 'online';
+          
+          if (status === 'online') newStats.OnlineTime += seconds;
+          else newStats.OfflineTime += seconds;
+          newStats.TotalTime += seconds;
+      });
+
+      // Calculate Activity Counts
+      bucket.forEach(i => {
+        if (newStats[i.type] !== undefined) newStats[i.type]++;
+      });
+
+      // --- SORT (Newest First) ---
       bucket.sort((a, b) => {
           const tA = a.time?.toMillis ? a.time.toMillis() : 0;
           const tB = b.time?.toMillis ? b.time.toMillis() : 0;
@@ -118,19 +145,18 @@ export default function UserActivityPage() {
       });
 
       setUserActivities(bucket);
-      calculateUserStats(bucket);
+      setUserStats(newStats);
 
     } catch (e) {
       console.error("Error loading details", e);
     } finally {
-        setFetchingDetails(false);
+        setFetchingDetails(false); 
     }
   };
 
   const normalize = (doc: any, type: string, icon: JSX.Element, customDetail?: string) => {
     const d = doc.data();
     const time = d.startTime || d.createdAt || d.timestamp || d.completedAt || d.date;
-    
     return {
       id: doc.id,
       type, icon, time,
@@ -138,9 +164,7 @@ export default function UserActivityPage() {
     };
   };
 
-  // --- FORMATTER ---
   const formatDetails = (type: string, d: any) => {
-    // Format Time Helper
     const fmtTime = (t: any) => {
         if (t && typeof t.toDate === 'function') {
             return t.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -152,20 +176,16 @@ export default function UserActivityPage() {
         const range = d.startTime && d.endTime ? ` (${fmtTime(d.startTime)} - ${fmtTime(d.endTime)})` : '';
         return `${d.kickCount || 0} kicks recorded${range}`;
     }
-
     if (type === "Contraction") {
         const range = d.startTime && d.endTime ? ` (${fmtTime(d.startTime)} - ${fmtTime(d.endTime)})` : '';
         return `Duration: ${d.durationSeconds || 0}s${range}`;
     }
-
     if (type === "Breathing") {
        const mins = Math.floor((d.durationMs||0)/60000);
        const secs = Math.floor(((d.durationMs||0) % 60000) / 1000);
        const range = d.startTime && d.endTime ? ` • ${fmtTime(d.startTime)} - ${fmtTime(d.endTime)}` : '';
        return `Session: ${mins}m ${secs}s${range}`;
     }
-
-    // UPDATED: Handle Visualization Timer Data
     if (type === "Visualization") {
         if (d.durationMs !== undefined) {
              const mins = Math.floor((d.durationMs||0)/60000);
@@ -175,28 +195,24 @@ export default function UserActivityPage() {
         }
         return d.details || "Session completed";
     }
-
     if (type === "Mood") return `${d.emoji || ''} ${d.emotion || ''}`;
-    
     return "";
   };
 
-  const calculateUserStats = (data: any[]) => {
-    const counts: any = { 
-        "Kick": 0, "Contraction": 0, "Breathing": 0, 
-        "Mood": 0, "Psychoeducation": 0, "Visualization": 0 
-    };
-    data.forEach(i => {
-      if (counts[i.type] !== undefined) counts[i.type]++;
-    });
-    setUserStats(counts);
+  // Helper to format seconds into "1h 20m"
+  const formatTimeDuration = (seconds: number) => {
+      if (!seconds) return "0m";
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
   };
 
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         
-        {/* HEADER */}
+        {/* PAGE HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground font-display">User Activity</h1>
@@ -213,7 +229,7 @@ export default function UserActivityPage() {
           </div>
         </div>
 
-        {/* TABLE */}
+        {/* USER LIST TABLE */}
         <Card>
           <CardHeader><CardTitle>Registered Mothers ({filteredUsers.length})</CardTitle></CardHeader>
           <CardContent>
@@ -258,9 +274,11 @@ export default function UserActivityPage() {
           </CardContent>
         </Card>
 
-        {/* DETAILS POPUP */}
+        {/* DETAILS DIALOG */}
         <Dialog open={!!selectedUser} onOpenChange={(o) => !o && setSelectedUser(null)}>
           <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+            
+            {/* Header */}
             <DialogHeader className="p-6 border-b bg-slate-50/50">
               <DialogTitle className="text-2xl font-display flex items-center gap-3">
                 <span className="bg-rose-100 text-rose-600 p-3 rounded-full"><Activity size={24}/></span>
@@ -279,17 +297,41 @@ export default function UserActivityPage() {
               {fetchingDetails ? (
                  <div className="md:col-span-12 p-6 h-full flex flex-col gap-6">
                     <div className="grid grid-cols-3 gap-4">
+                        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl bg-slate-200" />)}
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
                         {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl bg-slate-200" />)}
                     </div>
-                    <Skeleton className="h-[250px] w-full rounded-xl bg-slate-200" />
-                    <div className="space-y-4">
-                        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl bg-slate-200" />)}
-                    </div>
+                    <Skeleton className="h-[200px] w-full rounded-xl bg-slate-200" />
                  </div>
               ) : (
                 <>
-                  {/* Stats & Charts */}
+                  {/* LEFT COLUMN: STATS */}
                   <div className="md:col-span-7 p-6 space-y-6">
+                    
+                    {/* 1. TIME STATS ROW */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <StatBox 
+                            label="Total Time" 
+                            value={formatTimeDuration(userStats.TotalTime)} 
+                            icon={Clock} 
+                            color="bg-slate-100 text-slate-700" 
+                        />
+                        <StatBox 
+                            label="Online" 
+                            value={formatTimeDuration(userStats.OnlineTime)} 
+                            icon={Wifi} 
+                            color="bg-green-100 text-green-600" 
+                        />
+                        <StatBox 
+                            label="Offline" 
+                            value={formatTimeDuration(userStats.OfflineTime)} 
+                            icon={WifiOff} 
+                            color="bg-gray-100 text-gray-500" 
+                        />
+                    </div>
+
+                    {/* 2. ACTIVITY STATS ROW */}
                     <div className="grid grid-cols-3 gap-3">
                       <StatBox label="Kicks" value={userStats["Kick"]} icon={Footprints} color="bg-orange-100 text-orange-600" />
                       <StatBox label="Breathing" value={userStats["Breathing"]} icon={Wind} color="bg-blue-100 text-blue-600" />
@@ -299,9 +341,10 @@ export default function UserActivityPage() {
                       <StatBox label="Visualizations" value={userStats["Visualization"]} icon={Eye} color="bg-emerald-100 text-emerald-600" />
                     </div>
 
+                    {/* 3. CHART */}
                     <Card>
                       <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">Usage Distribution</CardTitle></CardHeader>
-                      <CardContent className="h-[250px]">
+                      <CardContent className="h-[220px]">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={[
                             { name: 'Kicks', val: userStats['Kick'] || 0, fill: '#f97316' },
@@ -321,7 +364,7 @@ export default function UserActivityPage() {
                     </Card>
                   </div>
 
-                  {/* History Timeline */}
+                  {/* RIGHT COLUMN: TIMELINE */}
                   <div className="md:col-span-5 bg-white border-l border-slate-200 h-full flex flex-col">
                     <div className="p-4 border-b bg-white z-10 sticky top-0">
                         <h3 className="font-semibold text-slate-800">History Timeline</h3>
