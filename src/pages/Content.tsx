@@ -147,14 +147,6 @@ return {
               <Calendar className="h-4 w-4" />
               Manage Weekly Updates
             </Button>
-            <Button 
-    variant="outline" 
-    className="gap-2 border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
-    onClick={() => navigate("/faq-builder?id=faq_baby_movements")}
-  >
-    <BookOpen className="h-4 w-4" /> {/* Ensure BookOpen is imported from lucide-react */}
-    Manage Baby FAQs
-  </Button>
             {/* ------------------------- */}
 
             <Button variant="rose" className="gap-2" onClick={handleCreate}>
