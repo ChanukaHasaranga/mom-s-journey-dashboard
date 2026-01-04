@@ -13,12 +13,21 @@ import { collection, getDocs, getDoc, doc, query, orderBy, limit, where } from "
 import { db } from "@/firebase";
 // Icons
 import { 
-  Search, Eye, Activity, Smile, HeartPulse, Footprints, Wind, BookOpen, Clock, Wifi, WifiOff 
+  Search, Eye, Activity, Smile, HeartPulse, Footprints, Wind, BookOpen, Clock, Wifi, WifiOff, Star
 } from "lucide-react";
 // Charts
 import { 
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell 
 } from "recharts";
+
+// --- 1. DEFINE FEEDBACK MAPPING ---
+const FEEDBACK_LABELS: Record<number, string> = {
+  1: "Not useful at all 😞",
+  2: "Slightly useful 😐",
+  3: "Moderately useful 🙂",
+  4: "Very useful 😀",
+  5: "Extremely useful 🤩",
+};
 
 export default function UserActivityPage() {
   // --- STATE ---
@@ -27,15 +36,12 @@ export default function UserActivityPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   
-  // Selected User Data
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userActivities, setUserActivities] = useState<any[]>([]);
   const [userStats, setUserStats] = useState<any>({});
-  
-  // Loading State for Dialog
   const [fetchingDetails, setFetchingDetails] = useState(false);
 
-  // --- 1. FETCH ALL USERS ---
+  // --- FETCH USERS ---
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -51,7 +57,7 @@ export default function UserActivityPage() {
             return { 
                 id: d.id, 
                 ...rootData,
-                ...profileData,
+                ...profileData, 
                 username: rootData.username || rootData.displayName || profileData.username || "Unknown"
             };
         }));
@@ -67,7 +73,7 @@ export default function UserActivityPage() {
     fetchUsers();
   }, []);
 
-  // --- 2. SEARCH FILTER ---
+  // --- SEARCH ---
   useEffect(() => {
     const lower = search.toLowerCase();
     const filtered = users.filter(u => 
@@ -77,24 +83,23 @@ export default function UserActivityPage() {
     setFilteredUsers(filtered);
   }, [search, users]);
 
-  // --- 3. FETCH DETAILED ACTIVITY ---
+  // --- FETCH DETAILS ---
   const handleViewUser = async (user: any) => {
     setSelectedUser(user);
-    setFetchingDetails(true); // Start Loading
+    setFetchingDetails(true); 
     setUserActivities([]);
     
     const uid = user.id;
     const bucket: any[] = [];
     
-    // Initial Stats including Time
     const newStats: any = { 
         "Kick": 0, "Contraction": 0, "Breathing": 0, 
-        "Mood": 0, "Psychoeducation": 0, "Visualization": 0,
+        "Mood": 0, "Psychoeducation": 0, "Visualization": 0, 
+        "Feedback": 0,
         "OnlineTime": 0, "OfflineTime": 0, "TotalTime": 0 
     };
 
     try {
-      // Fetch from all relevant collections concurrently
       const [kicks, contractions, breathing, moods, chapters, vizSessions, vizLogs, appSessions] = await Promise.all([
           getDocs(collection(db, `users/${uid}/kicks`)),
           getDocs(collection(db, `users/${uid}/contractions`)),
@@ -103,25 +108,38 @@ export default function UserActivityPage() {
           getDocs(collection(db, `users/${uid}/readchapters/psychoeducation/chapters`)),
           getDocs(collection(db, `users/${uid}/mindfulexcercie/visualization/visualization_sessions`)),
           getDocs(query(collection(db, "activity_logs"), where("uid", "==", uid), where("activityType", "==", "Visualization"))),
-          // NEW: Fetch App Sessions
           getDocs(collection(db, `users/${uid}/app_sessions`))
       ]);
 
-      // --- PROCESS ACTIVITIES ---
+      // Activities
       kicks.forEach(d => bucket.push(normalize(d, "Kick", <Footprints size={16}/>)));
       contractions.forEach(d => bucket.push(normalize(d, "Contraction", <HeartPulse size={16}/>)));
       breathing.forEach(d => bucket.push(normalize(d, "Breathing", <Wind size={16}/>)));
       moods.forEach(d => bucket.push(normalize(d, "Mood", <Smile size={16}/>)));
       
-      chapters.forEach(d => {
-        const title = d.id.replace("chapter", "Chapter ");
-        bucket.push(normalize(d, "Psychoeducation", <BookOpen size={16}/>, `Read ${title}`));
+      // --- PROCESS CHAPTERS & FEEDBACK ---
+      chapters.forEach(doc => {
+        const d = doc.data();
+        const title = doc.id.replace("chapter", "Chapter ");
+        
+        let details = `Read ${title}`;
+        
+        // 2. USE MAPPING HERE
+        if (d.rating) {
+            newStats.Feedback++; 
+            // Look up the label based on the number
+            const label = FEEDBACK_LABELS[d.rating] || `${d.rating} Stars`; 
+            details += ` • Feedback: ${label}`; 
+        }
+
+        bucket.push(normalize(doc, "Psychoeducation", <BookOpen size={16}/>, details));
       });
 
+      // Visualizations
       vizSessions.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
       vizLogs.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
 
-      // --- PROCESS APP SESSIONS (TIME TRACKING) ---
+      // Time
       appSessions.forEach(doc => {
           const d = doc.data();
           const seconds = d.durationSeconds || 0;
@@ -132,12 +150,12 @@ export default function UserActivityPage() {
           newStats.TotalTime += seconds;
       });
 
-      // Calculate Activity Counts
+      // Counts
       bucket.forEach(i => {
         if (newStats[i.type] !== undefined) newStats[i.type]++;
       });
 
-      // --- SORT (Newest First) ---
+      // Sort
       bucket.sort((a, b) => {
           const tA = a.time?.toMillis ? a.time.toMillis() : 0;
           const tB = b.time?.toMillis ? b.time.toMillis() : 0;
@@ -172,34 +190,17 @@ export default function UserActivityPage() {
         return '';
     };
 
-    if (type === "Kick") {
-        const range = d.startTime && d.endTime ? ` (${fmtTime(d.startTime)} - ${fmtTime(d.endTime)})` : '';
-        return `${d.kickCount || 0} kicks recorded${range}`;
-    }
-    if (type === "Contraction") {
-        const range = d.startTime && d.endTime ? ` (${fmtTime(d.startTime)} - ${fmtTime(d.endTime)})` : '';
-        return `Duration: ${d.durationSeconds || 0}s${range}`;
-    }
+    if (type === "Kick") return `${d.kickCount || 0} kicks recorded`;
+    if (type === "Contraction") return `Duration: ${d.durationSeconds || 0}s`;
     if (type === "Breathing") {
        const mins = Math.floor((d.durationMs||0)/60000);
-       const secs = Math.floor(((d.durationMs||0) % 60000) / 1000);
-       const range = d.startTime && d.endTime ? ` • ${fmtTime(d.startTime)} - ${fmtTime(d.endTime)}` : '';
-       return `Session: ${mins}m ${secs}s${range}`;
+       return `Session: ${mins} mins`;
     }
-    if (type === "Visualization") {
-        if (d.durationMs !== undefined) {
-             const mins = Math.floor((d.durationMs||0)/60000);
-             const secs = Math.floor(((d.durationMs||0) % 60000) / 1000);
-             const range = d.startTime && d.endTime ? ` • ${fmtTime(d.startTime)} - ${fmtTime(d.endTime)}` : '';
-             return `Session: ${mins}m ${secs}s${range}`;
-        }
-        return d.details || "Session completed";
-    }
+    if (type === "Visualization") return d.details || "Session completed";
     if (type === "Mood") return `${d.emoji || ''} ${d.emotion || ''}`;
     return "";
   };
 
-  // Helper to format seconds into "1h 20m"
   const formatTimeDuration = (seconds: number) => {
       if (!seconds) return "0m";
       const h = Math.floor(seconds / 3600);
@@ -212,7 +213,7 @@ export default function UserActivityPage() {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         
-        {/* PAGE HEADER */}
+        {/* HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground font-display">User Activity</h1>
@@ -229,7 +230,7 @@ export default function UserActivityPage() {
           </div>
         </div>
 
-        {/* USER LIST TABLE */}
+        {/* TABLE */}
         <Card>
           <CardHeader><CardTitle>Registered Mothers ({filteredUsers.length})</CardTitle></CardHeader>
           <CardContent>
@@ -237,6 +238,7 @@ export default function UserActivityPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Patient ID</TableHead>
+                  <TableHead>Education</TableHead>
                   <TableHead>MOH Area</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead className="text-right">Action</TableHead>
@@ -249,12 +251,14 @@ export default function UserActivityPage() {
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
                      </TableRow>
                    ))
                 ) : filteredUsers.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell>{u.patientid || "N/A"}</TableCell>
+                    <TableCell className="capitalize">{u.education || "-"}</TableCell>
                     <TableCell>{u.MOHArea || "-"}</TableCell>
                     <TableCell>
                         {u.duedate && typeof u.duedate.toDate === 'function' 
@@ -274,11 +278,9 @@ export default function UserActivityPage() {
           </CardContent>
         </Card>
 
-        {/* DETAILS DIALOG */}
+        {/* DIALOG */}
         <Dialog open={!!selectedUser} onOpenChange={(o) => !o && setSelectedUser(null)}>
           <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-            
-            {/* Header */}
             <DialogHeader className="p-6 border-b bg-slate-50/50">
               <DialogTitle className="text-2xl font-display flex items-center gap-3">
                 <span className="bg-rose-100 text-rose-600 p-3 rounded-full"><Activity size={24}/></span>
@@ -287,7 +289,7 @@ export default function UserActivityPage() {
                     <div className="flex gap-4 text-muted-foreground text-sm font-normal mt-1">
                         <span>ID: <span className="font-mono text-slate-700">{selectedUser?.patientid}</span></span>
                         <span>•</span>
-                        <span>Phone: {selectedUser?.phonenumber || "N/A"}</span>
+                        <span>Edu: {selectedUser?.education || "-"}</span>
                     </div>
                 </div>
               </DialogTitle>
@@ -306,42 +308,22 @@ export default function UserActivityPage() {
                  </div>
               ) : (
                 <>
-                  {/* LEFT COLUMN: STATS */}
                   <div className="md:col-span-7 p-6 space-y-6">
-                    
-                    {/* 1. TIME STATS ROW */}
                     <div className="grid grid-cols-3 gap-3">
-                        <StatBox 
-                            label="Total Time" 
-                            value={formatTimeDuration(userStats.TotalTime)} 
-                            icon={Clock} 
-                            color="bg-slate-100 text-slate-700" 
-                        />
-                        <StatBox 
-                            label="Online" 
-                            value={formatTimeDuration(userStats.OnlineTime)} 
-                            icon={Wifi} 
-                            color="bg-green-100 text-green-600" 
-                        />
-                        <StatBox 
-                            label="Offline" 
-                            value={formatTimeDuration(userStats.OfflineTime)} 
-                            icon={WifiOff} 
-                            color="bg-gray-100 text-gray-500" 
-                        />
+                        <StatBox label="Total Time" value={formatTimeDuration(userStats.TotalTime)} icon={Clock} color="bg-slate-100 text-slate-700" />
+                        <StatBox label="Online" value={formatTimeDuration(userStats.OnlineTime)} icon={Wifi} color="bg-green-100 text-green-600" />
+                        <StatBox label="Offline" value={formatTimeDuration(userStats.OfflineTime)} icon={WifiOff} color="bg-gray-100 text-gray-500" />
                     </div>
 
-                    {/* 2. ACTIVITY STATS ROW */}
                     <div className="grid grid-cols-3 gap-3">
                       <StatBox label="Kicks" value={userStats["Kick"]} icon={Footprints} color="bg-orange-100 text-orange-600" />
                       <StatBox label="Breathing" value={userStats["Breathing"]} icon={Wind} color="bg-blue-100 text-blue-600" />
                       <StatBox label="Moods" value={userStats["Mood"]} icon={Smile} color="bg-yellow-100 text-yellow-600" />
                       <StatBox label="Contractions" value={userStats["Contraction"]} icon={HeartPulse} color="bg-red-100 text-red-600" />
-                      <StatBox label="Chapters" value={userStats["Psychoeducation"]} icon={BookOpen} color="bg-purple-100 text-purple-600" />
+                      <StatBox label="Feedback" value={userStats["Feedback"]} icon={Star} color="bg-indigo-100 text-indigo-600" />
                       <StatBox label="Visualizations" value={userStats["Visualization"]} icon={Eye} color="bg-emerald-100 text-emerald-600" />
                     </div>
 
-                    {/* 3. CHART */}
                     <Card>
                       <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">Usage Distribution</CardTitle></CardHeader>
                       <CardContent className="h-[220px]">
@@ -351,12 +333,12 @@ export default function UserActivityPage() {
                             { name: 'Breath', val: userStats['Breathing'] || 0, fill: '#3b82f6' },
                             { name: 'Mood', val: userStats['Mood'] || 0, fill: '#eab308' },
                             { name: 'Edu', val: userStats['Psychoeducation'] || 0, fill: '#9333ea' },
-                            { name: 'Viz', val: userStats['Visualization'] || 0, fill: '#10b981' },
+                            { name: 'Fback', val: userStats['Feedback'] || 0, fill: '#4f46e5' },
                           ]}>
                             <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} interval={0} />
                             <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}} />
                             <Bar dataKey="val" radius={[4, 4, 0, 0]}>
-                              <Cell fill="#f97316" /><Cell fill="#3b82f6" /><Cell fill="#eab308" /><Cell fill="#9333ea" /><Cell fill="#10b981" />
+                              <Cell fill="#f97316" /><Cell fill="#3b82f6" /><Cell fill="#eab308" /><Cell fill="#9333ea" /><Cell fill="#4f46e5" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -364,7 +346,6 @@ export default function UserActivityPage() {
                     </Card>
                   </div>
 
-                  {/* RIGHT COLUMN: TIMELINE */}
                   <div className="md:col-span-5 bg-white border-l border-slate-200 h-full flex flex-col">
                     <div className="p-4 border-b bg-white z-10 sticky top-0">
                         <h3 className="font-semibold text-slate-800">History Timeline</h3>
@@ -411,7 +392,6 @@ export default function UserActivityPage() {
   );
 }
 
-// Components
 function StatBox({ label, value, icon: Icon, color }: any) {
   const bgClass = color.split(' ')[0];
   const textClass = color.split(' ')[1];
