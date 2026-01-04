@@ -13,7 +13,7 @@ import { collection, getDocs, getDoc, doc, query, orderBy, limit, where } from "
 import { db } from "@/firebase";
 // Icons
 import { 
-  Search, Eye, Activity, Smile, HeartPulse, Footprints, Wind, BookOpen, Clock, Wifi, WifiOff, Star
+  Search, Eye, Activity, Smile, HeartPulse, Footprints, Wind, BookOpen, Clock, Wifi, WifiOff, Star, Download, FileDown
 } from "lucide-react";
 // Charts
 import { 
@@ -77,11 +77,65 @@ export default function UserActivityPage() {
   useEffect(() => {
     const lower = search.toLowerCase();
     const filtered = users.filter(u => 
-      (u.username || "").toLowerCase().includes(lower) || 
-      (u.patientid || "").toLowerCase().includes(lower)
+      (u.patientid || "").toLowerCase().includes(lower) // Only search by ID now since Name is removed
     );
     setFilteredUsers(filtered);
   }, [search, users]);
+
+  // --- 1. EXPORT MAIN REGISTRY (ANONYMIZED) ---
+  const downloadRegistryCSV = () => {
+    // Define Headers (No Name, No Phone)
+    const headers = ["Patient ID", "Education", "MOH Area", "Due Date"];
+    
+    // Convert Data to CSV Rows
+    const rows = filteredUsers.map(u => {
+        const dueDate = u.duedate && typeof u.duedate.toDate === 'function' 
+            ? u.duedate.toDate().toLocaleDateString() 
+            : (u.duedate ? new Date(u.duedate.seconds * 1000).toLocaleDateString() : "-");
+
+        return [
+            u.patientid || "N/A",
+            `"${u.education || "-"}"`,
+            `"${u.MOHArea || "-"}"`,
+            dueDate,
+        ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    triggerDownload(csvContent, `registry_export_${new Date().toISOString().slice(0,10)}.csv`);
+  };
+
+  // --- 2. EXPORT INDIVIDUAL ACTIVITY LOG ---
+  const downloadActivityCSV = () => {
+    if (!selectedUser || userActivities.length === 0) return;
+
+    const headers = ["Date", "Time", "Activity Type", "Details"];
+    
+    const rows = userActivities.map(act => {
+        const dateObj = act.time && typeof act.time.toDate === 'function' ? act.time.toDate() : null;
+        const dateStr = dateObj ? dateObj.toLocaleDateString() : "-";
+        const timeStr = dateObj ? dateObj.toLocaleTimeString() : "-";
+        // Escape quotes in details
+        const safeDetails = `"${(act.details || "").replace(/"/g, '""')}"`;
+
+        return [dateStr, timeStr, act.type, safeDetails].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    triggerDownload(csvContent, `${selectedUser.patientid}_activity_log.csv`);
+  };
+
+  // Helper to trigger browser download
+  const triggerDownload = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // --- FETCH DETAILS ---
   const handleViewUser = async (user: any) => {
@@ -117,45 +171,34 @@ export default function UserActivityPage() {
       breathing.forEach(d => bucket.push(normalize(d, "Breathing", <Wind size={16}/>)));
       moods.forEach(d => bucket.push(normalize(d, "Mood", <Smile size={16}/>)));
       
-      // --- PROCESS CHAPTERS & FEEDBACK ---
       chapters.forEach(doc => {
         const d = doc.data();
         const title = doc.id.replace("chapter", "Chapter ");
-        
         let details = `Read ${title}`;
-        
-        // 2. USE MAPPING HERE
         if (d.rating) {
             newStats.Feedback++; 
-            // Look up the label based on the number
             const label = FEEDBACK_LABELS[d.rating] || `${d.rating} Stars`; 
             details += ` • Feedback: ${label}`; 
         }
-
         bucket.push(normalize(doc, "Psychoeducation", <BookOpen size={16}/>, details));
       });
 
-      // Visualizations
       vizSessions.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
       vizLogs.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
 
-      // Time
       appSessions.forEach(doc => {
           const d = doc.data();
           const seconds = d.durationSeconds || 0;
           const status = d.status || 'online';
-          
           if (status === 'online') newStats.OnlineTime += seconds;
           else newStats.OfflineTime += seconds;
           newStats.TotalTime += seconds;
       });
 
-      // Counts
       bucket.forEach(i => {
         if (newStats[i.type] !== undefined) newStats[i.type]++;
       });
 
-      // Sort
       bucket.sort((a, b) => {
           const tA = a.time?.toMillis ? a.time.toMillis() : 0;
           const tB = b.time?.toMillis ? b.time.toMillis() : 0;
@@ -219,14 +262,21 @@ export default function UserActivityPage() {
             <h1 className="text-3xl font-bold text-foreground font-display">User Activity</h1>
             <p className="text-muted-foreground">Monitor individual user progress and health metrics.</p>
           </div>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search Name or ID..." 
-              className="pl-8" 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          
+          <div className="flex gap-2 w-full sm:w-auto">
+             <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search Patient ID..." 
+                  className="pl-8" 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+             </div>
+
+             <Button variant="outline" onClick={downloadRegistryCSV} className="gap-2">
+                <Download className="h-4 w-4" /> Export CSV
+             </Button>
           </div>
         </div>
 
@@ -238,6 +288,7 @@ export default function UserActivityPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Patient ID</TableHead>
+                  {/* REMOVED NAME COLUMN */}
                   <TableHead>Education</TableHead>
                   <TableHead>MOH Area</TableHead>
                   <TableHead>Due Date</TableHead>
@@ -248,7 +299,7 @@ export default function UserActivityPage() {
                 {loading ? (
                    [...Array(5)].map((_, i) => (
                      <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
@@ -257,7 +308,8 @@ export default function UserActivityPage() {
                    ))
                 ) : filteredUsers.map((u) => (
                   <TableRow key={u.id}>
-                    <TableCell>{u.patientid || "N/A"}</TableCell>
+                    <TableCell className="font-mono font-medium">{u.patientid || "N/A"}</TableCell>
+                    {/* REMOVED NAME CELL */}
                     <TableCell className="capitalize">{u.education || "-"}</TableCell>
                     <TableCell>{u.MOHArea || "-"}</TableCell>
                     <TableCell>
@@ -281,18 +333,25 @@ export default function UserActivityPage() {
         {/* DIALOG */}
         <Dialog open={!!selectedUser} onOpenChange={(o) => !o && setSelectedUser(null)}>
           <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-            <DialogHeader className="p-6 border-b bg-slate-50/50">
-              <DialogTitle className="text-2xl font-display flex items-center gap-3">
-                <span className="bg-rose-100 text-rose-600 p-3 rounded-full"><Activity size={24}/></span>
-                <div>
-                    {selectedUser?.username}'s Activity Log
-                    <div className="flex gap-4 text-muted-foreground text-sm font-normal mt-1">
-                        <span>ID: <span className="font-mono text-slate-700">{selectedUser?.patientid}</span></span>
-                        <span>•</span>
-                        <span>Edu: {selectedUser?.education || "-"}</span>
+            <DialogHeader className="p-6 border-b bg-slate-50/50 flex flex-row justify-between items-center">
+              <div className="flex items-center gap-3">
+                <DialogTitle className="text-2xl font-display flex items-center gap-3">
+                    <span className="bg-rose-100 text-rose-600 p-3 rounded-full"><Activity size={24}/></span>
+                    <div>
+                        User Activity Log
+                        <div className="flex gap-4 text-muted-foreground text-sm font-normal mt-1">
+                            <span>ID: <span className="font-mono text-slate-700">{selectedUser?.patientid}</span></span>
+                            <span>•</span>
+                            <span>Edu: {selectedUser?.education || "-"}</span>
+                        </div>
                     </div>
-                </div>
-              </DialogTitle>
+                </DialogTitle>
+              </div>
+              
+              {/* Added Export Button inside Dialog for specific user timeline */}
+              <Button size="sm" variant="secondary" onClick={downloadActivityCSV} disabled={fetchingDetails}>
+                 <FileDown className="h-4 w-4 mr-2" /> Export Log
+              </Button>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto grid md:grid-cols-12 bg-slate-50/30">
@@ -308,6 +367,7 @@ export default function UserActivityPage() {
                  </div>
               ) : (
                 <>
+                  {/* LEFT: STATS */}
                   <div className="md:col-span-7 p-6 space-y-6">
                     <div className="grid grid-cols-3 gap-3">
                         <StatBox label="Total Time" value={formatTimeDuration(userStats.TotalTime)} icon={Clock} color="bg-slate-100 text-slate-700" />
@@ -346,6 +406,7 @@ export default function UserActivityPage() {
                     </Card>
                   </div>
 
+                  {/* RIGHT: TIMELINE */}
                   <div className="md:col-span-5 bg-white border-l border-slate-200 h-full flex flex-col">
                     <div className="p-4 border-b bg-white z-10 sticky top-0">
                         <h3 className="font-semibold text-slate-800">History Timeline</h3>
