@@ -182,9 +182,13 @@ export default function UserActivityPage() {
         }
         bucket.push(normalize(doc, "Psychoeducation", <BookOpen size={16}/>, details));
       });
-
-      vizSessions.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
-      vizLogs.forEach(d => bucket.push(normalize(d, "Visualization", <Eye size={16}/>)));
+vizSessions.forEach(d => {
+          // Pass "Visualization" type so formatDetails handles it correctly
+          bucket.push(normalize(d, "Visualization", <Eye size={16}/>));
+      });
+      vizLogs.forEach(d => {
+          bucket.push(normalize(d, "Visualization", <Eye size={16}/>));
+      });
 
       appSessions.forEach(doc => {
           const d = doc.data();
@@ -236,11 +240,22 @@ export default function UserActivityPage() {
     if (type === "Kick") return `${d.kickCount || 0} kicks recorded`;
     if (type === "Contraction") return `Duration: ${d.durationSeconds || 0}s`;
     if (type === "Breathing") {
-       const mins = Math.floor((d.durationMs||0)/60000);
-       return `Session: ${mins} mins`;
+       if (d.durationMs !== undefined && d.durationMs !== null) {
+      const mins = Math.floor((d.durationMs)/60000);
+      const secs = Math.floor(((d.durationMs) % 60000) / 1000);
+      return `Session: ${mins}m ${secs}s`;
+ }
+ // 2. Fallback for older entries
+ return d.details || "Session completed";
     }
-    if (type === "Visualization") return d.details || "Session completed";
-    if (type === "Mood") return `${d.emoji || ''} ${d.emotion || ''}`;
+if (type === "Visualization") {
+        if (d.durationMs !== undefined && d.durationMs !== null) {
+             const mins = Math.floor((d.durationMs)/60000);
+             const secs = Math.floor(((d.durationMs) % 60000) / 1000);
+             return `Session: ${mins}m ${secs}s`;
+        }
+        return d.details || "Session completed";
+    }    if (type === "Mood") return `${d.emoji || ''} ${d.emotion || ''}`;
     return "";
   };
 
